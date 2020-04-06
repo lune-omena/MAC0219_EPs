@@ -453,7 +453,7 @@ uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "1.0.1"
 
 [[Pkg]]
-deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Test", "UUIDs"]
+deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PlotThemes]]
@@ -470,9 +470,9 @@ version = "0.6.5"
 
 [[Plots]]
 deps = ["Base64", "Contour", "Dates", "FFMPEG", "FixedPointNumbers", "GR", "GeometryTypes", "JSON", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "Reexport", "Requires", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs"]
-git-tree-sha1 = "016fbcee598ddfb43de9a37454777885bbb7a950"
+git-tree-sha1 = "6c24a62e4b668100b45ba6610c7bd14697fe7743"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.0.0"
+version = "1.0.3"
 
 [[PooledArrays]]
 deps = ["DataAPI"]
