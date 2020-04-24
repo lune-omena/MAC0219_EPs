@@ -16,6 +16,8 @@
 
 #define FUNCTIONS 1
 
+#define N 10
+
 struct timer_info {
     clock_t c_start;
     clock_t c_end;
@@ -47,11 +49,30 @@ struct function functions[] = {
 // Your thread data structures go here
 
 struct thread_data{
+    long double *samples;
+    long double (*f)(long double s);
+    int size;
 };
 
-struct thread_data *thread_data_array;
+typedef struct thread_data * thread_data_array;
 
 // End of data structures
+
+
+// começo - funcoes nossas
+
+thread_data_array CriaThread_data(long double (*f)(long double), long double *samples, int size){
+    thread_data_array T;
+    T=malloc(sizeof(struct thread_data));
+    //T->f=malloc(sizeof(long double*));
+    T->f=f;
+    //T->samples=malloc(sizeof(long double*));
+    T->samples=samples;
+    T->size=size;
+    return T;
+}
+
+// termino - funcoes nossas
 
 long double *samples;
 long double *results;
@@ -70,6 +91,7 @@ long double *uniform_sample(long double *interval, long double *samples, int siz
                                    rand_interval,
                                    interval);
     }
+    printf("%Lf BBBBBBBBB\n",samples[0]);
     return samples;
 }
 
@@ -102,7 +124,12 @@ long double monte_carlo_integrate(long double (*f)(long double), long double *sa
 
 void *monte_carlo_integrate_thread(void *args){
     // Your pthreads code goes here
-    pthread_exit(NULL);
+    thread_data_array Tdata=(thread_data_array) args;
+    printf("%Lf,%Lf, %d, AAAAAAAAAAAAA\n",
+        Tdata->f(Tdata->samples[0]),Tdata->samples[0],Tdata->size);
+    long double* n=malloc(sizeof(long double)*1);
+    *n=2;
+    return n;
 }
 
 int main(int argc, char **argv){
@@ -166,9 +193,39 @@ int main(int argc, char **argv){
 
         // Your pthreads code goes here
 
+        thread_data_array *Tdatas;
+        Tdatas=malloc(N*sizeof(thread_data_array));
+        //printf("DDDDDDDD\n");
+        for (int i = 0; i < N; i++)
+        {
+            Tdatas[i]=CriaThread_data(target_function.f,
+                                         uniform_sample(target_function.interval,
+                                                        samples,
+                                                        size/N),
+                                         size/N);
+            printf("%Lf CCCCCCCCCC\n",Tdatas[i]->samples[0]);
+            printf("%Lf,%Lf, %d, FFFFFFFFFFF\n",
+                Tdatas[i]->f(Tdatas[i]->samples[0]),Tdatas[i]->samples[0],Tdatas[i]->size);
+        }
+        printf("%d,%Lf,%Lf, %d, GGGG\n",0,
+                Tdatas[0]->f(Tdatas[0]->samples[0]),Tdatas[0]->samples[0],Tdatas[0]->size);
+        long double **res;
+        pthread_t* threads=(pthread_t* )malloc(N*sizeof(pthread_t));
+
+        res=(double long**)malloc(N*sizeof(long double*));
+        for(int i=0;i<N;i++){
+            printf("%d,%Lf,%Lf, %d, EEEEEEEEEe\n",i,
+                Tdatas[i]->f(Tdatas[i]->samples[0]),Tdatas[i]->samples[0],Tdatas[i]->size);
+            pthread_create(&threads[i],NULL,
+                monte_carlo_integrate_thread,Tdatas[i]);
+        }
+        for(int i=0;i<5;i++){
+            pthread_join(threads[i],(void*)&res[i]);
+            printf("%Lf done!",*(res[i]));
+        }
+
         printf("Not implemented yet\n");
         exit(-1);
-
         // Your pthreads code ends here
 
         timer.c_end = clock();
