@@ -16,7 +16,7 @@
 
 #define FUNCTIONS 1
 
-#define N 10
+#define N 4
 
 struct timer_info {
     clock_t c_start;
@@ -125,13 +125,14 @@ long double monte_carlo_integrate(long double (*f)(long double), long double *sa
 void *monte_carlo_integrate_thread(void *args){
     // Your pthreads code goes here
     thread_data_array Tdata=(thread_data_array) args;
-    printf("%Lf,%Lf, %d, AAAAAAAAAAAAA\n",
-        Tdata->f(Tdata->samples[Tdata->size-1]),Tdata->samples[Tdata->size-1],Tdata->size);
+    //printf("%Lf,%Lf, %d, AAAAAAAAAAAAA\n",
+    //    Tdata->f(Tdata->samples[0]),Tdata->samples[0],Tdata->size);
     long double* soma=malloc(sizeof(long double)*1);
     *soma=0;
     for (int i = 0; i < Tdata->size; i++)
     {
-        (*soma)=(*soma)+Tdata->f(samples[i]);
+        (*soma)+=Tdata->f(Tdata->samples[i]);
+        //printf("%Lf\n",Tdata->f(Tdata->samples[0]));
     }
     return soma;
 }
