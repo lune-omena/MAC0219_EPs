@@ -91,7 +91,7 @@ long double *uniform_sample(long double *interval, long double *samples, int siz
                                    rand_interval,
                                    interval);
     }
-    printf("%Lf BBBBBBBBB\n",samples[0]);
+    //printf("%Lf BBBBBBBBB\n",samples[0]);
     return samples;
 }
 
@@ -126,10 +126,14 @@ void *monte_carlo_integrate_thread(void *args){
     // Your pthreads code goes here
     thread_data_array Tdata=(thread_data_array) args;
     printf("%Lf,%Lf, %d, AAAAAAAAAAAAA\n",
-        Tdata->f(Tdata->samples[0]),Tdata->samples[0],Tdata->size);
-    long double* n=malloc(sizeof(long double)*1);
-    *n=2;
-    return n;
+        Tdata->f(Tdata->samples[Tdata->size-1]),Tdata->samples[Tdata->size-1],Tdata->size);
+    long double* soma=malloc(sizeof(long double)*1);
+    *soma=0;
+    for (int i = 0; i < Tdata->size; i++)
+    {
+        (*soma)=(*soma)+Tdata->f(samples[i]);
+    }
+    return soma;
 }
 
 int main(int argc, char **argv){
@@ -192,40 +196,43 @@ int main(int argc, char **argv){
         gettimeofday(&timer.v_start, NULL);
 
         // Your pthreads code goes here
-
+        int partsize=(int)(size/N);
+        long double **parts,*totsample=uniform_sample(target_function.interval,samples,size);
+        parts=malloc(N*sizeof(long double*));
+        for (int i = 0; i < N; i++)
+        {
+            parts[i]=malloc(partsize*sizeof(long double));
+            for (int j = 0; j < partsize;j++)
+            {
+                parts[i][j]=totsample[partsize*i+j];
+            }
+        }
+                          
         thread_data_array *Tdatas;
         Tdatas=malloc(N*sizeof(thread_data_array));
-        //printf("DDDDDDDD\n");
+        
         for (int i = 0; i < N; i++)
         {
             Tdatas[i]=CriaThread_data(target_function.f,
-                                         uniform_sample(target_function.interval,
-                                                        samples,
-                                                        size/N),
-                                         size/N);
-            printf("%Lf CCCCCCCCCC\n",Tdatas[i]->samples[0]);
-            printf("%Lf,%Lf, %d, FFFFFFFFFFF\n",
-                Tdatas[i]->f(Tdatas[i]->samples[0]),Tdatas[i]->samples[0],Tdatas[i]->size);
+                                         parts[i],
+                                         partsize);
         }
-        printf("%d,%Lf,%Lf, %d, GGGG\n",0,
-                Tdatas[0]->f(Tdatas[0]->samples[0]),Tdatas[0]->samples[0],Tdatas[0]->size);
         long double **res;
         pthread_t* threads=(pthread_t* )malloc(N*sizeof(pthread_t));
 
         res=(double long**)malloc(N*sizeof(long double*));
         for(int i=0;i<N;i++){
-            printf("%d,%Lf,%Lf, %d, EEEEEEEEEe\n",i,
-                Tdatas[i]->f(Tdatas[i]->samples[0]),Tdatas[i]->samples[0],Tdatas[i]->size);
             pthread_create(&threads[i],NULL,
                 monte_carlo_integrate_thread,Tdatas[i]);
         }
-        for(int i=0;i<5;i++){
+        estimate=0;
+        for(int i=0;i<N;i++){
             pthread_join(threads[i],(void*)&res[i]);
-            printf("%Lf done!",*(res[i]));
+            estimate+=*res[i];
         }
+        estimate/=size;
+        //printf("estimate: %Lf",estimate);
 
-        printf("Not implemented yet\n");
-        exit(-1);
         // Your pthreads code ends here
 
         timer.c_end = clock();
@@ -257,3 +264,4 @@ int main(int argc, char **argv){
     }//Membro1
     return 0;
 }
+
