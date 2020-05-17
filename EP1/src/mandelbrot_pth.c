@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <pthread.h>
+
+#define NTHREADS 4
+
+
 
 double c_x_min;
 double c_x_max;
@@ -39,6 +44,8 @@ int colors[17][3] = {
                         {106, 52, 3},
                         {16, 16, 16},
                     };
+
+
 
 void allocate_image_buffer(){
     int rgb_size = 3;
@@ -94,7 +101,7 @@ void update_rgb_buffer(int iteration, int x, int y){
 
 void write_to_file(){
     FILE * file;
-    char * filename               = "output.ppm";
+    char * filename               = "output_pth.ppm";
     char * comment                = "# ";
 
     int max_color_component_value = 255;
@@ -111,7 +118,9 @@ void write_to_file(){
     fclose(file);
 };
 
-void compute_mandelbrot(){
+/*PTHREAD FUNCTIONS*/
+
+void work(int i,int j){
     double z_x;
     double z_y;
     double z_x_squared;
@@ -119,50 +128,79 @@ void compute_mandelbrot(){
     double escape_radius_squared = 4;
 
     int iteration;
-    int i_x;
-    int i_y;
 
     double c_x;
     double c_y;
 
-    for(i_y = 0; i_y < i_y_max; i_y++){
-        c_y = c_y_min + i_y * pixel_height;
+    c_y = c_y_min + j * pixel_height;
 
-        if(fabs(c_y) < pixel_height / 2){
-            c_y = 0.0;
-        };
-
-        for(i_x = 0; i_x < i_x_max; i_x++){
-            c_x         = c_x_min + i_x * pixel_width;
-
-            z_x         = 0.0;
-            z_y         = 0.0;
-
-            z_x_squared = 0.0;
-            z_y_squared = 0.0;
-
-            for(iteration = 0;
-                iteration < iteration_max && \
-                ((z_x_squared + z_y_squared) < escape_radius_squared);
-                iteration++){
-                z_y         = 2 * z_x * z_y + c_y;
-                z_x         = z_x_squared - z_y_squared + c_x;
-
-                z_x_squared = z_x * z_x;
-                z_y_squared = z_y * z_y;
-            };
-
-            update_rgb_buffer(iteration, i_x, i_y);
-        };
+    if(fabs(c_y) < pixel_height / 2){
+        c_y = 0.0;
     };
-};
+    c_x         = c_x_min + i * pixel_width;
+
+    z_x         = 0.0;
+    z_y         = 0.0;
+
+    z_x_squared = 0.0;
+    z_y_squared = 0.0;
+    for(iteration = 0;
+        iteration < iteration_max && \
+        ((z_x_squared + z_y_squared) < escape_radius_squared);
+        iteration++){
+        z_y         = 2 * z_x * z_y + c_y;
+        z_x         = z_x_squared - z_y_squared + c_x;
+
+        z_x_squared = z_x * z_x;
+        z_y_squared = z_y * z_y;
+    }
+    update_rgb_buffer(iteration, i, j);
+}
+
+static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+int i_x=0;
+int i_y=0;
+
+void* task(void* arg){
+    int i,j;
+    for(;;){
+        pthread_mutex_lock(&mutex);
+        if(i_y==i_y_max){
+            pthread_mutex_unlock(&mutex);
+            return NULL;
+        }
+        i=i_x;
+        j=i_y;
+        (i_x)++;
+        if(i_x==i_x_max){
+            (i_y)++;
+            i_x=0;
+        }
+        pthread_mutex_unlock(&mutex);
+        work(i,j);
+    }
+}
+
+
+void create_threads(){
+    pthread_t* threads;
+    threads=(pthread_t* )malloc(NTHREADS*sizeof(pthread_t));
+    for(int i=0;i<NTHREADS;i++){
+        pthread_create(&threads[i],NULL,task,NULL);
+    }
+    for(int i=0;i<NTHREADS;i++){
+        pthread_join(threads[i], NULL);
+    }
+}
+
+/*PTHREAD FUNCTIONS*/
 
 int main(int argc, char *argv[]){
     init(argc, argv);
 
     allocate_image_buffer();
 
-    compute_mandelbrot();
+    create_threads();
 
     write_to_file();
 

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <omp.h>
 
 double c_x_min;
 double c_x_max;
@@ -125,6 +126,7 @@ void compute_mandelbrot(){
     double c_x;
     double c_y;
 
+    #pragma omp parallel for
     for(i_y = 0; i_y < i_y_max; i_y++){
         c_y = c_y_min + i_y * pixel_height;
 
@@ -132,6 +134,7 @@ void compute_mandelbrot(){
             c_y = 0.0;
         };
 
+        #pragma omp parallel for
         for(i_x = 0; i_x < i_x_max; i_x++){
             c_x         = c_x_min + i_x * pixel_width;
 
