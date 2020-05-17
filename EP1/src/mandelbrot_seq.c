@@ -165,6 +165,6 @@ int main(int argc, char *argv[]){
     compute_mandelbrot();
 
     write_to_file();
-
+    printf("%f", (float)(rand() % 10));
     return 0;
 };
