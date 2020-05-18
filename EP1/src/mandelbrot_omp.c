@@ -2,6 +2,22 @@
 #include <stdlib.h>
 #include <math.h>
 #include <omp.h>
+#include <time.h>
+#include <sys/time.h>
+
+
+struct timer_info {
+    clock_t c_start;
+    clock_t c_end;
+    struct timespec t_start;
+    struct timespec t_end;
+    struct timeval v_start;
+    struct timeval v_end;
+};
+
+struct timer_info timer;
+
+int NTHREADS;
 
 double c_x_min;
 double c_x_max;
@@ -66,6 +82,7 @@ void init(int argc, char *argv[]){
         sscanf(argv[3], "%lf", &c_y_min);
         sscanf(argv[4], "%lf", &c_y_max);
         sscanf(argv[5], "%d", &image_size);
+        sscanf(argv[6], "%d", &NTHREADS);
 
         i_x_max           = image_size;
         i_y_max           = image_size;
@@ -95,7 +112,7 @@ void update_rgb_buffer(int iteration, int x, int y){
 
 void write_to_file(){
     FILE * file;
-    char * filename               = "output.ppm";
+    char * filename               = "output_omp.ppm";
     char * comment                = "# ";
 
     int max_color_component_value = 255;
@@ -126,7 +143,7 @@ void compute_mandelbrot(){
     double c_x;
     double c_y;
 
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(NTHREADS) private(i_x,i_y,z_x,z_y,z_x_squared,z_y_squared,c_x,c_y,iteration) shared(pixel_width,escape_radius_squared,c_x_min,c_y_min,iteration_max,i_x_max,i_y_max)
     for(i_y = 0; i_y < i_y_max; i_y++){
         c_y = c_y_min + i_y * pixel_height;
 
@@ -134,7 +151,6 @@ void compute_mandelbrot(){
             c_y = 0.0;
         };
 
-        #pragma omp parallel for
         for(i_x = 0; i_x < i_x_max; i_x++){
             c_x         = c_x_min + i_x * pixel_width;
 
@@ -165,9 +181,20 @@ int main(int argc, char *argv[]){
 
     allocate_image_buffer();
 
+    
+    timer.c_start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &timer.t_start);
+    gettimeofday(&timer.v_start, NULL);
+
     compute_mandelbrot();
 
-    write_to_file();
+    timer.c_end = clock();
+    clock_gettime(CLOCK_MONOTONIC, &timer.t_end);
+    gettimeofday(&timer.v_end, NULL);
 
+    write_to_file();
+    printf("%f\n",
+        (double) (timer.t_end.tv_sec - timer.t_start.tv_sec) +
+        (double) (timer.t_end.tv_nsec - timer.t_start.tv_nsec) / 1000000000.0);
     return 0;
 };
