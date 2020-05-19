@@ -131,14 +131,13 @@ void write_to_file(){
 };
 
 /*PTHREAD FUNCTIONS*/
-
+/*
 void work(int i,int j){
     double z_x;
     double z_y;
     double z_x_squared;
     double z_y_squared;
     double escape_radius_squared = 4;
-
     int iteration;
 
     double c_x;
@@ -167,12 +166,51 @@ void work(int i,int j){
         z_y_squared = z_y * z_y;
     }
     update_rgb_buffer(iteration, i, j);
+}*/
+
+void work(int j){
+    double z_x;
+    double z_y;
+    double z_x_squared;
+    double z_y_squared;
+    double escape_radius_squared = 4;
+    int i_x;
+
+    int iteration;
+
+    double c_x;
+    double c_y;
+
+    c_y = c_y_min + j * pixel_height;
+    if(fabs(c_y) < pixel_height / 2){
+        c_y = 0.0;
+    };
+    for(i_x = 0; i_x < i_x_max; i_x++){
+        c_x         = c_x_min + i_x * pixel_width;
+
+        z_x         = 0.0;
+        z_y         = 0.0;
+
+        z_x_squared = 0.0;
+        z_y_squared = 0.0;
+        for(iteration = 0;
+            iteration < iteration_max && \
+            ((z_x_squared + z_y_squared) < escape_radius_squared);
+            iteration++){
+            z_y         = 2 * z_x * z_y + c_y;
+            z_x         = z_x_squared - z_y_squared + c_x;
+
+            z_x_squared = z_x * z_x;
+            z_y_squared = z_y * z_y;
+        }
+        update_rgb_buffer(iteration, i_x, j);
+    }
 }
 
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
-int i_x=0;
+//int i_x=0;
 int i_y=0;
-
+/*
 void* task(void* arg){
     int i,j;
     for(;;){
@@ -190,6 +228,20 @@ void* task(void* arg){
         }
         pthread_mutex_unlock(&mutex);
         work(i,j);
+    }
+}*/
+
+void* task(void* arg){
+    int j;
+    for(;;){
+        pthread_mutex_lock(&mutex);
+        if(i_y==i_y_max){
+            pthread_mutex_unlock(&mutex);
+            return NULL;
+        }
+        j=i_y++;
+        pthread_mutex_unlock(&mutex);
+        work(j);
     }
 }
 
