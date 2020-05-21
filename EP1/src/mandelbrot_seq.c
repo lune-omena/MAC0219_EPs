@@ -13,7 +13,7 @@ struct timer_info {
     struct timeval v_end;
 };
 
-struct timer_info timer;
+struct timer_info timer, timerAloc;
 
 double c_x_min;
 double c_x_max;
@@ -172,6 +172,10 @@ void compute_mandelbrot(){
 };
 
 int main(int argc, char *argv[]){
+    timerAloc.c_start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &timerAloc.t_start);
+    gettimeofday(&timerAloc.v_start, NULL);
+
     init(argc, argv);
 
     allocate_image_buffer();
@@ -186,9 +190,20 @@ int main(int argc, char *argv[]){
     clock_gettime(CLOCK_MONOTONIC, &timer.t_end);
     gettimeofday(&timer.v_end, NULL);
 
-    write_to_file();
-    printf("%f\n",
+    timerAloc.c_end = clock();
+    clock_gettime(CLOCK_MONOTONIC, &timerAloc.t_end);
+    gettimeofday(&timerAloc.v_end, NULL);
+
+    
+    printf("%f",
         (double) (timer.t_end.tv_sec - timer.t_start.tv_sec) +
         (double) (timer.t_end.tv_nsec - timer.t_start.tv_nsec) / 1000000000.0);
+    write_to_file();
+    printf (",");
+    printf("%f",
+        (double) (timerAloc.t_end.tv_sec - timerAloc.t_start.tv_sec) +
+        (double) (timerAloc.t_end.tv_nsec - timerAloc.t_start.tv_nsec) / 1000000000.0);
+    printf ("\n");
+    
     return 0;
 };
