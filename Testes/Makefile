@@ -1,8 +1,3 @@
-omp: teste.c
-	gcc -o teste -fopenmp teste.c
+cuda: teste.cu 
+	nvcc -o teste teste.cu
 	./teste
-
-noomp: teste.c
-	gcc -o teste teste.c
-	./teste
-

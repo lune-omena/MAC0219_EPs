@@ -3,6 +3,7 @@
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
+#define SIZE 100
 
 #define SIZE 1024
 
@@ -32,7 +33,11 @@ __device__ unsigned char **image_buffer;
 
 __device__ int i_x_max;
 __device__ int i_y_max;
+<<<<<<< HEAD:EP2/src/mandelbrot_cuda.cu
 __device__ int image_buffer_size;
+=======
+int image_buffer_size;
+>>>>>>> 782cd71f207cbd2d1a7f547b78ca7a8b4b49c200:EP2/src/mandelbrot_cuda.c
 
 __device__ int gradient_size = 16;
 __device__ int colors[17][3] = {
@@ -139,26 +144,50 @@ __global__ void compute_mandelbrot(){
     double z_x_squared;
     double z_y_squared;
     double escape_radius_squared = 4;
+<<<<<<< HEAD:EP2/src/mandelbrot_cuda.cu
     double c_x;
     double c_y;
 
     int iteration;
     int i_x=threadIdx.x;
     int i_y=threadIdx.y;
+=======
+
+    int iteration = threadIdx.x;
+    int i_x = threadIdx.x;
+    int i_y = threadIdx.x;
+
+    double c_x;
+    double c_y;
+
+    if (i_y < i_y_max){
+        c_y = c_y_min + i_y * pixel_height;
+>>>>>>> 782cd71f207cbd2d1a7f547b78ca7a8b4b49c200:EP2/src/mandelbrot_cuda.c
 
 
+<<<<<<< HEAD:EP2/src/mandelbrot_cuda.cu
     c_y = c_y_min + i_y * pixel_height;
     if(fabs(c_y) < pixel_height / 2){
         c_y = 0.0;
     };
+=======
+        if (i_x < i_x_max){
+            c_x         = c_x_min + i_x * pixel_width;
+>>>>>>> 782cd71f207cbd2d1a7f547b78ca7a8b4b49c200:EP2/src/mandelbrot_cuda.c
 
         c_x         = c_x_min + i_x * pixel_width;
 
         z_x         = 0.0;
         z_y         = 0.0;
 
+<<<<<<< HEAD:EP2/src/mandelbrot_cuda.cu
         z_x_squared = 0.0;
         z_y_squared = 0.0;
+=======
+            if (iteration < iteration_max && ((z_x_squared + z_y_squared) < escape_radius_squared)){
+                z_y         = 2 * z_x * z_y + c_y;
+                z_x         = z_x_squared - z_y_squared + c_x;
+>>>>>>> 782cd71f207cbd2d1a7f547b78ca7a8b4b49c200:EP2/src/mandelbrot_cuda.c
 
         for(iteration = 0;
             iteration < iteration_max && \
@@ -187,8 +216,12 @@ int main(int argc, char *argv[]){
     clock_gettime(CLOCK_MONOTONIC, &timer.t_start);
     gettimeofday(&timer.v_start, NULL);
 
+<<<<<<< HEAD:EP2/src/mandelbrot_cuda.cu
     compute_mandelbrot<<<1,SIZE>>>();
     cudaDeviceSynchronize();
+=======
+    compute_mandelbrot <<<1, SIZE>>> ();
+>>>>>>> 782cd71f207cbd2d1a7f547b78ca7a8b4b49c200:EP2/src/mandelbrot_cuda.c
 
     timer.c_end = clock();
     clock_gettime(CLOCK_MONOTONIC, &timer.t_end);
