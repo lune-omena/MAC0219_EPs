@@ -4,6 +4,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+#define SIZE 1024
+
 struct timer_info {
     clock_t c_start;
     clock_t c_end;
@@ -15,25 +17,25 @@ struct timer_info {
 
 struct timer_info timer, timerAloc;
 
-double c_x_min;
-double c_x_max;
-double c_y_min;
-double c_y_max;
+__device__ double c_x_min;
+__device__ double c_x_max;
+__device__ double c_y_min;
+__device__ double c_y_max;
 
-double pixel_width;
-double pixel_height;
+__device__ double pixel_width;
+__device__ double pixel_height;
 
-int iteration_max = 200;
+__device__ int iteration_max = 200;
 
-int image_size;
-unsigned char **image_buffer;
+__device__ int image_size;
+__device__ unsigned char **image_buffer;
 
-int i_x_max;
-int i_y_max;
-int image_buffer_size;
+__device__ int i_x_max;
+__device__ int i_y_max;
+__device__ int image_buffer_size;
 
-int gradient_size = 16;
-int colors[17][3] = {
+__device__ int gradient_size = 16;
+__device__ int colors[17][3] = {
                         {66, 30, 15},
                         {25, 7, 26},
                         {9, 1, 47},
@@ -53,7 +55,7 @@ int colors[17][3] = {
                         {16, 16, 16},
                     };
 
-void allocate_image_buffer(){
+__device__ void allocate_image_buffer(){
     int rgb_size = 3;
     image_buffer = (unsigned char **) malloc(sizeof(unsigned char *) * image_buffer_size);
 
@@ -62,7 +64,24 @@ void allocate_image_buffer(){
     };
 };
 
-void init(int argc, char *argv[]){
+__host__ void sscanfall(char* argv[]){
+    sscanf(argv[1], "%lf", &c_x_min);
+    sscanf(argv[2], "%lf", &c_x_max);
+    sscanf(argv[3], "%lf", &c_y_min);
+    sscanf(argv[4], "%lf", &c_y_max);
+    sscanf(argv[5], "%d", &image_size);
+}
+
+__device__ void initdevice(){
+    i_x_max           = image_size;
+    i_y_max           = image_size;
+    image_buffer_size = image_size * image_size;
+
+    pixel_width       = (c_x_max - c_x_min) / i_x_max;
+    pixel_height      = (c_y_max - c_y_min) / i_y_max;
+}
+
+__host__ __device__ void init(int argc, char *argv[]){
     if(argc < 6){
         printf("usage: ./mandelbrot_seq c_x_min c_x_max c_y_min c_y_max image_size\n");
         printf("examples with image_size = 11500:\n");
@@ -70,25 +89,16 @@ void init(int argc, char *argv[]){
         printf("    Seahorse Valley:      ./mandelbrot_seq -0.8 -0.7 0.05 0.15 11500\n");
         printf("    Elephant Valley:      ./mandelbrot_seq 0.175 0.375 -0.1 0.1 11500\n");
         printf("    Triple Spiral Valley: ./mandelbrot_seq -0.188 -0.012 0.554 0.754 11500\n");
-        exit(0);
+        //exit(0);
+        return;
     }
     else{
-        sscanf(argv[1], "%lf", &c_x_min);
-        sscanf(argv[2], "%lf", &c_x_max);
-        sscanf(argv[3], "%lf", &c_y_min);
-        sscanf(argv[4], "%lf", &c_y_max);
-        sscanf(argv[5], "%d", &image_size);
-
-        i_x_max           = image_size;
-        i_y_max           = image_size;
-        image_buffer_size = image_size * image_size;
-
-        pixel_width       = (c_x_max - c_x_min) / i_x_max;
-        pixel_height      = (c_y_max - c_y_min) / i_y_max;
+        sscanfall(argv);
+        initdevice();
     };
 };
 
-void update_rgb_buffer(int iteration, int x, int y){
+__device__ void update_rgb_buffer(int iteration, int x, int y){
     int color;
 
     if(iteration == iteration_max){
@@ -105,17 +115,16 @@ void update_rgb_buffer(int iteration, int x, int y){
     };
 };
 
-void write_to_file(){
+__host__ void write_to_file(){
     FILE * file;
-    char * filename               = "output.ppm";
-    char * comment                = "# ";
-
+    const char * filename               = "output.ppm";
+    const char * comment                = "# ";
     int max_color_component_value = 255;
+    int i_x_m=i_x_max;
 
     file = fopen(filename,"wb");
-
     fprintf(file, "P6\n %s\n %d\n %d\n %d\n", comment,
-            i_x_max, i_y_max, max_color_component_value);
+            i_x_m, i_y_max, max_color_component_value);
 
     for(int i = 0; i < image_buffer_size; i++){
         fwrite(image_buffer[i], 1 , 3, file);
@@ -124,51 +133,45 @@ void write_to_file(){
     fclose(file);
 };
 
-void compute_mandelbrot(){
+__global__ void compute_mandelbrot(){
     double z_x;
     double z_y;
     double z_x_squared;
     double z_y_squared;
     double escape_radius_squared = 4;
-
-    int iteration;
-    int i_x;
-    int i_y;
-
     double c_x;
     double c_y;
 
-    for(i_y = 0; i_y < i_y_max; i_y++){
-        c_y = c_y_min + i_y * pixel_height;
+    int iteration;
+    int i_x=threadIdx.x;
+    int i_y=threadIdx.y;
 
-        if(fabs(c_y) < pixel_height / 2){
-            c_y = 0.0;
-        };
 
-        for(i_x = 0; i_x < i_x_max; i_x++){
-            c_x         = c_x_min + i_x * pixel_width;
-
-            z_x         = 0.0;
-            z_y         = 0.0;
-
-            z_x_squared = 0.0;
-            z_y_squared = 0.0;
-
-            for(iteration = 0;
-                iteration < iteration_max && \
-                ((z_x_squared + z_y_squared) < escape_radius_squared);
-                iteration++){
-                z_y         = 2 * z_x * z_y + c_y;
-                z_x         = z_x_squared - z_y_squared + c_x;
-
-                z_x_squared = z_x * z_x;
-                z_y_squared = z_y * z_y;
-            };
-
-            update_rgb_buffer(iteration, i_x, i_y);
-        };
+    c_y = c_y_min + i_y * pixel_height;
+    if(fabs(c_y) < pixel_height / 2){
+        c_y = 0.0;
     };
 
+        c_x         = c_x_min + i_x * pixel_width;
+
+        z_x         = 0.0;
+        z_y         = 0.0;
+
+        z_x_squared = 0.0;
+        z_y_squared = 0.0;
+
+        for(iteration = 0;
+            iteration < iteration_max && \
+            ((z_x_squared + z_y_squared) < escape_radius_squared);
+            iteration++){
+            z_y         = 2 * z_x * z_y + c_y;
+            z_x         = z_x_squared - z_y_squared + c_x;
+
+            z_x_squared = z_x * z_x;
+            z_y_squared = z_y * z_y;
+        };
+
+        update_rgb_buffer(iteration, i_x, i_y);
 };
 
 int main(int argc, char *argv[]){
@@ -184,7 +187,8 @@ int main(int argc, char *argv[]){
     clock_gettime(CLOCK_MONOTONIC, &timer.t_start);
     gettimeofday(&timer.v_start, NULL);
 
-    compute_mandelbrot();
+    compute_mandelbrot<<<1,SIZE>>>();
+    cudaDeviceSynchronize();
 
     timer.c_end = clock();
     clock_gettime(CLOCK_MONOTONIC, &timer.t_end);
