@@ -4,7 +4,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include<cuda.h>
-#define SIZE 1024
+#define SIZE 10
 #define iteration_max 200
 #define gradient_size 16
 
@@ -30,16 +30,22 @@ typedef struct param{
     int i_x_max;
     int i_y_max;
     int image_buffer_size;
-    unsigned char **image_buffer;
+    unsigned char *image_buffer;
     int *colors;
 } params;
 
 typedef params* Params;
 
+void allocate_image_buffer(Params p){
+    int rgb_size = 3;
+    cudaMallocManaged(&(p->image_buffer), sizeof(unsigned char) * p->image_buffer_size * rgb_size);
+};
+
 Params CreateParams(){
     Params p;
     cudaMallocManaged(&p,sizeof(Params));
     cudaMallocManaged(&(p->colors),51*sizeof(int));
+    allocate_image_buffer(p);
     int colorvals[51]={
     66, 30, 15,
     25, 7, 26,
@@ -66,16 +72,6 @@ Params CreateParams(){
 }
 
 
-void allocate_image_buffer(Params p){
-    int rgb_size = 3;
-    p->image_buffer = (unsigned char **) malloc(sizeof(unsigned char *) * p->image_buffer_size);
-
-    for(int i = 0; i < p->image_buffer_size; i++){
-        p->image_buffer[i] = (unsigned char *) malloc(sizeof(unsigned char) * rgb_size);
-    };
-};
-
-
 void init(int argc, char *argv[],Params p){
     if(argc < 6){
         printf("usage: ./mandelbrot_seq c_x_min c_x_max c_y_min c_y_max image_size\n");
@@ -85,7 +81,7 @@ void init(int argc, char *argv[],Params p){
         printf("    Elephant Valley:      ./mandelbrot_seq 0.175 0.375 -0.1 0.1 11500\n");
         printf("    Triple Spiral Valley: ./mandelbrot_seq -0.188 -0.012 0.554 0.754 11500\n");
         exit(0);
-    }
+    } 
     else{
         printf("AAAA\n");
         sscanf(argv[1], "%lf", &(p->c_x_min));
@@ -121,19 +117,26 @@ void update_rgb_buffer(int iteration, int x, int y,Params p){
 */
 void write_to_file(Params p){
     FILE * file;
-    const char * filename               = "output.ppm";
+    const char * filename               = "output_cuda.ppm";
     const char * comment                = "# ";
     int max_color_component_value = 255;
+    char* ch=(char*)malloc(3*sizeof(char));
 
     file = fopen(filename,"wb");
+    
     fprintf(file, "P6\n %s\n %d\n %d\n %d\n", comment,
             p->i_x_max, p->i_y_max, max_color_component_value);
-
-    for(int i = 0; i < p->image_buffer_size; i++){
-        fwrite(p->image_buffer[i], 1 , 3, file);
+    printf("CCCCC\n");
+    printf("%c\n",p->image_buffer[0]);
+    printf("CCCCC\n");
+    for(int i = 0; i < 3*p->image_buffer_size; i+=3){
+        ch[0]=p->image_buffer[i];
+        ch[1]=p->image_buffer[i+1];
+        ch[2]=p->image_buffer[i+2];
+        fwrite(ch, 1 , 3, file);
     };
-
     fclose(file);
+    printf("CCCCC\n");
 };
 
 __global__ void compute_mandelbrot(Params p){
@@ -148,8 +151,10 @@ __global__ void compute_mandelbrot(Params p){
     double c_y;
 
     int iteration;
-    int i_x=threadIdx.x;
-    int i_y=threadIdx.y;
+    uint i_x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    uint i_y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+    printf("%d,%d -",i_x,i_y);
 
     if(i_y<p->i_y_max){
         c_y = p->c_y_min + i_y * p->pixel_height;
@@ -180,17 +185,19 @@ __global__ void compute_mandelbrot(Params p){
             int color;
 
             if(iteration == iteration_max){ 
-                p->image_buffer[(p->i_y_max * i_y) + i_x][0] = p->colors[gradient_size*3+0];
-                p->image_buffer[(p->i_y_max * i_y) + i_x][1] = p->colors[gradient_size*3+1];
-                p->image_buffer[(p->i_y_max * i_y) + i_x][2] = p->colors[gradient_size*3+2];
+                p->image_buffer[((p->i_y_max * i_y) + i_x)*3+0] = p->colors[gradient_size*3+0];
+                p->image_buffer[((p->i_y_max * i_y) + i_x)*3+1] = p->colors[gradient_size*3+1];
+                p->image_buffer[((p->i_y_max * i_y) + i_x)*3+2] = p->colors[gradient_size*3+2];
+
             }
             else{
                 color = iteration % gradient_size;
         
-                p->image_buffer[(p->i_y_max * i_y) + i_x][0] = p->colors[color*3+0];
-                p->image_buffer[(p->i_y_max * i_y) + i_x][1] = p->colors[color*3+1];
-                p->image_buffer[(p->i_y_max * i_y) + i_x][2] = p->colors[color*3+2];
+                p->image_buffer[((p->i_y_max * i_y) + i_x)*3+0] = p->colors[color*3+0];
+                p->image_buffer[((p->i_y_max * i_y) + i_x)*3+1] = p->colors[color*3+1];
+                p->image_buffer[((p->i_y_max * i_y) + i_x)*3+2] = p->colors[color*3+2];
             };
+
         }
     }
 };
@@ -204,15 +211,22 @@ int main(int argc, char *argv[]){
 
     init(argc, argv,p);
 
-    allocate_image_buffer(p);
 
     timer.c_start = clock();
     clock_gettime(CLOCK_MONOTONIC, &timer.t_start);
     gettimeofday(&timer.v_start, NULL);
 
-    compute_mandelbrot<<<1,SIZE>>>(p);
+    dim3 threadsPerBlock(8, 8); 
+    dim3 numBlocks(p->image_size/8,p->image_size/8);
+
+    compute_mandelbrot<<<numBlocks,threadsPerBlock>>>(p);    
     cudaDeviceSynchronize();
     printf("BBBBBb\n");
+    
+    printf("%c ",p->image_buffer[0]);
+    printf("BBBBBb\n");
+    
+    
 
     timer.c_end = clock();
     clock_gettime(CLOCK_MONOTONIC, &timer.t_end);
@@ -222,11 +236,11 @@ int main(int argc, char *argv[]){
     clock_gettime(CLOCK_MONOTONIC, &timerAloc.t_end);
     gettimeofday(&timerAloc.v_end, NULL);
 
-    
+    write_to_file(p);
     printf("%f",
         (double) (timer.t_end.tv_sec - timer.t_start.tv_sec) +
         (double) (timer.t_end.tv_nsec - timer.t_start.tv_nsec) / 1000000000.0);
-    write_to_file(p);
+    
     printf (",");
     printf("%f",
         (double) (timerAloc.t_end.tv_sec - timerAloc.t_start.tv_sec) +
@@ -234,6 +248,8 @@ int main(int argc, char *argv[]){
     printf ("\n");
 
     cudaFree(p->colors);
+    cudaFree(p->image_buffer);
+    cudaFree(p);
 
     return 0;
 };
