@@ -201,11 +201,8 @@ unsigned char **alloc_2d_array(int rows, int cols)
 
 int main(int argc, char *argv[])
 {
-    timerAloc.c_start = clock();
-    clock_gettime(CLOCK_MONOTONIC, &timerAloc.t_start);
-    gettimeofday(&timerAloc.v_start, NULL);
 
-    init(argc, argv);
+    
 
     int rank, size, h_len;
     char hostname[MPI_MAX_PROCESSOR_NAME];
@@ -223,6 +220,10 @@ int main(int argc, char *argv[])
     MPI_Get_processor_name(hostname, &h_len);
 
     //printf("Start! rank:%d size: %d at %s\n", rank, size,hostname);
+    timerAloc.c_start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &timerAloc.t_start);
+    gettimeofday(&timerAloc.v_start, NULL);
+    init(argc, argv);
     sub_image_buffer = alloc_2d_array(i_x_max, 3);
 
     //o código abaixo roda paralelamenteem multiplos processos
@@ -232,38 +233,38 @@ int main(int argc, char *argv[])
     if (rank == root)
     {
         int i_completed = 0;
-        unsigned char *subanswer;
         int CompletedTaskIndex;
         allocate_image_buffer();
 
         timer.c_start = clock();
         clock_gettime(CLOCK_MONOTONIC, &timer.t_start);
         gettimeofday(&timer.v_start, NULL);
-
-        int *IsWorking = calloc(size, sizeof(int));
         //enquanto todas as rtarefas não forem completas
+        for (int j = 1; j < size; j++)
+        {
+            if(i<i_y_max){
+                //manda o indice i da coluna a ser calculada para o processo j
+                MPI_Send(&i, 1, MPI_INT, j, 0, MPI_COMM_WORLD);
+            }
+            i++;
+        }
         while (i_completed < i_y_max)
         {
             //procura por processos ociosos
-            for (int j = 1; j < size; j++)
-            {
-                //se estiver ocioso e ainda houver trabalho para assinalar, assinala
-                if (!(IsWorking[j]) && i < i_y_max)
-                {
-                    //manda o indice i da coluna a ser calculada para o processo j
-                    MPI_Send(&i, 1, MPI_INT, j, 0, MPI_COMM_WORLD);
-                    IsWorking[j] = 1;
-                    i++;
-                }
-            }
+ 
             //espera para receber a resposta de qualquer processo
             MPI_Recv(&(sub_image_buffer[0][0]), 3 * i_x_max, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
             MPI_Recv(&CompletedTaskIndex, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             //após receber, registra o resultado em image_buffer
+            i_completed++;
+            if(i<i_y_max){
+                MPI_Send(&i, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD); 
+            }
             RegisterResult(sub_image_buffer, image_buffer, CompletedTaskIndex);
             //processo que entregou a resposta se torna ocioso
-            IsWorking[status.MPI_SOURCE] = 0;
-            i_completed++;
+            
+            i++;
+            
         }
         //quando as tarefas acabarem, mandar os processos temrinarem
         for (i = 1; i < size; i++)
@@ -303,12 +304,10 @@ int main(int argc, char *argv[])
     free(sub_image_buffer);
 
     //printf("End! rank:%d size: %d at %s\n", rank, size,hostname);
-
-    MPI_Finalize();
-
     timerAloc.c_end = clock();
     clock_gettime(CLOCK_MONOTONIC, &timerAloc.t_end);
     gettimeofday(&timerAloc.v_end, NULL);
+
 
     if (rank == root)
     {
@@ -325,6 +324,10 @@ int main(int argc, char *argv[])
                    (double)(timerAloc.t_end.tv_nsec - timerAloc.t_start.tv_nsec) / 1000000000.0);
         printf("\n");
     }
+    MPI_Finalize();
+
+
+
 
     return 0;
 };
