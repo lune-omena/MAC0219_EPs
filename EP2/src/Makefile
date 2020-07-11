@@ -12,8 +12,12 @@ mandelbrot_cuda: mandelbrot_cuda.cu
 	
 mandelbrot_ompi: mandelbrot_ompi.c
 	mpicc mandelbrot_ompi.c -o mandelbrot_ompi
-	mpirun -n 64 --host ./mandelbrot_ompi 0.175 0.375 -0.1 0.1 200 
-	
+	mpirun -n 64 ./mandelbrot_ompi 0.175 0.375 -0.1 0.1 200 
+
+mandelbrot_ompi_omp: mandelbrot_ompi_omp.c
+	mpicc -fopenmp mandelbrot_ompi_omp.c -o mandelbrot_ompi_omp
+	mpirun -n 4 ./mandelbrot_ompi_omp 0.175 0.375 -0.1 0.1 4096 32
+
 exec:
 	./mandelbrot_cuda -2.5 1.5 -2.0 2.0 3096 4 16
 clean:
