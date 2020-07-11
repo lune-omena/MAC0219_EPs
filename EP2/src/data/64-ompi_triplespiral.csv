@@ -1,0 +1,2 @@
+threads,processes,griddim,blocos,mean_duration,mean_io_alocation,ci_duration,ci_io_alocation
+0,64,0,0,11.796963466666666,24.167804866666668,1.5440743898773133,3.5711464013396754
